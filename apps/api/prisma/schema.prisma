@@ -1,0 +1,149 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────
+
+enum Plan {
+  free
+  pro
+  business
+}
+
+enum LinkType {
+  link
+  header
+  social
+  embed
+}
+
+enum EventType {
+  profile_view
+  link_click
+}
+
+enum Device {
+  mobile
+  desktop
+  tablet
+}
+
+enum SubscriptionStatus {
+  active
+  past_due
+  canceled
+  trialing
+}
+
+// ─── Models ───────────────────────────────────────────────────
+
+model User {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  passwordHash     String    @map("password_hash")
+  plan             Plan      @default(free)
+  planExpiresAt    DateTime? @map("plan_expires_at")
+  stripeCustomerId String?   @unique @map("stripe_customer_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  profiles      Profile[]
+  subscriptions Subscription[]
+
+  @@map("users")
+}
+
+model Profile {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  username     String   @unique
+  displayName  String   @map("display_name")
+  bio          String?  @db.VarChar(160)
+  avatarUrl    String?  @map("avatar_url")
+  theme        Json     @default("{\"preset\":\"default\",\"backgroundType\":\"solid\",\"backgroundColor\":\"#ffffff\",\"cardStyle\":\"rounded\",\"textColor\":\"#000000\"}")
+  isPublished  Boolean  @default(false) @map("is_published")
+  customDomain String?  @unique @map("custom_domain")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user               User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  links              Link[]
+  analyticsEvents    AnalyticsEvent[]
+  analyticsAggregates AnalyticsAggregate[]
+
+  @@index([userId])
+  @@index([customDomain])
+  @@map("profiles")
+}
+
+model Link {
+  id        String   @id @default(uuid())
+  profileId String   @map("profile_id")
+  title     String   @db.VarChar(100)
+  url       String
+  icon      String?  @db.VarChar(10)
+  isActive  Boolean  @default(true) @map("is_active")
+  position  Int      @default(0)
+  type      LinkType @default(link)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, position])
+  @@map("links")
+}
+
+// Write-heavy; partitioned by month in production via pg_partman
+model AnalyticsEvent {
+  id        BigInt    @id @default(autoincrement())
+  profileId String    @map("profile_id")
+  linkId    String?   @map("link_id")
+  eventType EventType @map("event_type")
+  referrer  String?
+  country   String?   @db.Char(2)
+  device    Device?
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, createdAt])
+  @@index([createdAt])
+  @@map("analytics_events")
+}
+
+model AnalyticsAggregate {
+  profileId     String   @map("profile_id")
+  date          DateTime @db.Date
+  profileViews  Int      @default(0) @map("profile_views")
+  linkClicks    Json     @default("{}") @map("link_clicks")
+  topCountries  Json     @default("[]") @map("top_countries")
+  topReferrers  Json     @default("[]") @map("top_referrers")
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, date])
+  @@map("analytics_aggregates")
+}
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  userId               String             @map("user_id")
+  stripeSubscriptionId String             @unique @map("stripe_subscription_id")
+  stripePriceId        String             @map("stripe_price_id")
+  status               SubscriptionStatus
+  currentPeriodStart   DateTime           @map("current_period_start")
+  currentPeriodEnd     DateTime           @map("current_period_end")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("subscriptions")
+}
