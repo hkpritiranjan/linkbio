@@ -17,8 +17,8 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@linkbio/types": ["../../packages/types/src/index.ts"],
-      "@linkbio/validators": ["../../packages/validators/src/index.ts"]
+      "@linkbio/types": ["./src/lib/shared/types.ts"],
+      "@linkbio/validators": ["./src/lib/shared/validators.ts"]
     }
   },
   "include": ["src"],

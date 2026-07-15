@@ -6,8 +6,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@linkbio/types": path.resolve(__dirname, "../../packages/types/src/index.ts"),
-      "@linkbio/validators": path.resolve(__dirname, "../../packages/validators/src/index.ts"),
+      "@linkbio/types": path.resolve(__dirname, "./src/lib/shared/types.ts"),
+      "@linkbio/validators": path.resolve(__dirname, "./src/lib/shared/validators.ts"),
     },
   },
   server: {
